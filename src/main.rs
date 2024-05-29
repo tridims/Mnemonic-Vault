@@ -34,9 +34,11 @@ fn main() {
             }
 
             // Access the vault data
-            if let Some(data) = loaded_vault.get_data() {
+            if let Ok(data) = loaded_vault.get_data() {
                 println!("Mnemonic: {}", data.mnemonic);
                 println!("Number of Accounts: {}", data.num_accounts);
+            } else {
+                eprintln!("Failed to get vault data");
             }
 
             // Change the password

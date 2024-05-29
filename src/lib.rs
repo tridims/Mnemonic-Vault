@@ -2,7 +2,7 @@ mod encryption;
 mod utils;
 mod vault_encryptor;
 
-use anyhow::{Ok, Result};
+use anyhow::{Context, Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use utils::save_to_file;
@@ -73,7 +73,7 @@ impl Vault {
             return save_to_file(&data, file_path);
         }
 
-        Ok(())
+        anyhow::bail!("No encrypted data to save")
     }
 
     pub fn load<P: AsRef<Path>>(file_path: P) -> Result<Self> {
@@ -81,8 +81,9 @@ impl Vault {
         // Creates a new locked vault instance with the encrypted data
         // Returns an error if the load operation fails or the file is invalid
 
-        let data = utils::load_from_file(file_path)?;
-        let encrypted_data: EncryptedData = serde_json::from_slice(&data)?;
+        let data = utils::load_from_file(file_path).context("Failed to load data from file")?;
+        let encrypted_data: EncryptedData =
+            serde_json::from_slice(&data).context("Failed to deserialize encrypted data")?;
 
         Ok(Vault {
             state: VaultState::Locked,
@@ -99,12 +100,11 @@ impl Vault {
 
         if let Some(encrypted_data) = &self.encrypted_data {
             let key = password.to_vec();
-            let encryption = Encryption::new_and_decrypt(key, encrypted_data);
-            let (encryption, decrypted_data) = encryption;
-
-            self.encryption = Some(encryption);
+            let (encryption, decrypted_data) = Encryption::new_and_decrypt(key, encrypted_data);
 
             let data: Data = serde_json::from_slice(&decrypted_data)?;
+
+            self.encryption = Some(encryption);
             self.data = Some(data);
             self.state = VaultState::Unlocked;
 
@@ -114,15 +114,19 @@ impl Vault {
         }
     }
 
-    pub fn get_data(&self) -> Option<&Data> {
+    pub fn get_data(&self) -> Result<&Data> {
         // Retrieves a reference to the vault data if the vault is unlocked
         // Returns None if the vault is locked
 
         if let VaultState::Unlocked = self.state {
-            return self.data.as_ref();
+            if let Some(data) = &self.data {
+                return Ok(data);
+            }
+
+            anyhow::bail!("No data found");
         }
 
-        None
+        anyhow::bail!("Vault is locked")
     }
 
     pub fn lock(&mut self) {

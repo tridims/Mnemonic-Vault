@@ -7,6 +7,7 @@ pub fn save_to_file<P: AsRef<Path>>(data: &[u8], file_path: P) -> Result<()> {
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
+        .truncate(true)
         .open(file_path.as_ref())?;
     file.write_all(data)?;
 
