@@ -3,11 +3,11 @@ use std::path::Path;
 
 fn main() {
     // Create a new locked vault
-    let password = b"password";
+    let password = b"a good password";
     let mut vault = Vault::new(password);
 
     // Set the vault data
-    let mnemonic = "example mnemonic".to_string();
+    let mnemonic = "train forest limb pistol wide robot blur wrist all also galaxy veteran reveal foil depth couple custom high robust produce crawl victory glare vocal".to_string();
     let num_accounts = 5;
     match vault.set_data(mnemonic, num_accounts) {
         Ok(_) => println!("Vault data set successfully"),
@@ -42,8 +42,8 @@ fn main() {
             }
 
             // Change the password
-            let current_password = b"password";
-            let new_password = b"new_password";
+            let current_password = b"a good password";
+            let new_password = b"another good new_password";
             match loaded_vault.change_password(current_password, new_password) {
                 Ok(_) => println!("Password changed successfully"),
                 Err(e) => eprintln!("Failed to change password: {}", e),
