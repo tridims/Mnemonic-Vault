@@ -1,45 +1,67 @@
-use aes_gcm::{aead::Aead, Aes256Gcm, Key, KeyInit};
-use anyhow::{anyhow, Result};
-use rand::{rngs::StdRng, RngCore, SeedableRng};
+use crate::crypto::{decrypt_speck_cbc, encrypt_speck_cbc, generate_random_bytes, pbkdf2_hash};
+use serde::{Deserialize, Serialize};
 
-// Encrypts the given plaintext using the provided key.
-pub fn encrypt_aes_gcm(
-    key: &[u8],
-    plaintext: &[u8],
-    nonce: &[u8; 12],
-) -> Result<(Vec<u8>, Vec<u8>)> {
-    let key: &Key<Aes256Gcm> = key.into();
-    let cipher = Aes256Gcm::new(&key);
-    let nonce = aes_gcm::Nonce::from_slice(nonce);
+const DEFAULT_KEY_SIZE: usize = 32; // 256 bits
+const DEFAULT_SALT_SIZE: usize = 32;
+const DEFAULT_ITERATIONS: u32 = 10_000;
 
-    let encrypted_data = cipher.encrypt(&nonce, plaintext).unwrap();
-
-    Ok((encrypted_data, nonce.to_vec()))
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct EncryptedData {
+    data: Vec<u8>,
+    iv: Vec<u8>,
+    salt: Vec<u8>,
+    key_algorithm: String,
+    key_iterations: u32,
 }
 
-// Decrypts the given encrypted data using the provided key and nonce.
-pub fn decrypt_aes_gcm(key: &[u8], ciphertext: &[u8], nonce: &[u8; 12]) -> Result<Vec<u8>> {
-    let key: &Key<Aes256Gcm> = key.into();
-    let cipher = Aes256Gcm::new(&key);
-    let nonce = aes_gcm::Nonce::from_slice(nonce);
-
-    let decrypted_data = cipher
-        .decrypt(nonce, ciphertext)
-        .map_err(|_| anyhow!("Decryption failed"))
-        .expect("Decryption failed");
-
-    Ok(decrypted_data)
+#[derive(Debug)]
+pub struct Encryption {
+    _key: Vec<u8>,
+    _salt: Vec<u8>,
 }
 
-pub fn pbkdf2_hash(password: &[u8], salt: &[u8], iterations: u32, size: usize) -> Result<Vec<u8>> {
-    let mut key = vec![0u8; size];
-    pbkdf2::pbkdf2::<hmac::Hmac<sha2::Sha256>>(password, salt, iterations, key.as_mut_slice())?;
-    Ok(key)
-}
+impl Encryption {
+    pub fn new_random(key: Vec<u8>) -> Self {
+        let salt = generate_random_bytes(DEFAULT_SALT_SIZE);
+        let hashed_key = pbkdf2_hash(&key, &salt, DEFAULT_ITERATIONS, DEFAULT_KEY_SIZE).unwrap();
 
-pub fn generate_random_bytes(size: usize) -> Vec<u8> {
-    let mut rng = StdRng::from_entropy();
-    let mut buf = vec![0u8; size];
-    rng.fill_bytes(&mut buf);
-    buf
+        Encryption {
+            _key: hashed_key,
+            _salt: salt,
+        }
+    }
+
+    pub fn new(key: Vec<u8>, salt: Vec<u8>) -> Self {
+        let hashed_key = pbkdf2_hash(&key, &salt, DEFAULT_ITERATIONS, DEFAULT_KEY_SIZE).unwrap();
+        Encryption {
+            _key: hashed_key,
+            _salt: salt,
+        }
+    }
+
+    pub fn encrypt(&self, data: &[u8]) -> EncryptedData {
+        let (encrypted_data, iv) =
+            encrypt_speck_cbc(&self._key.as_slice().try_into().unwrap(), data).unwrap();
+
+        EncryptedData {
+            data: encrypted_data,
+            iv,
+            salt: self._salt.clone(),
+            key_algorithm: "AES256GCM".to_string(),
+            key_iterations: DEFAULT_ITERATIONS,
+        }
+    }
+
+    pub fn new_and_decrypt(key: Vec<u8>, encrypted_data: &EncryptedData) -> (Self, Vec<u8>) {
+        let me = Self::new(key, encrypted_data.salt.clone());
+        let res = decrypt_speck_cbc(
+            &me._key.as_slice().try_into().unwrap(),
+            &encrypted_data.data,
+            encrypted_data.iv.as_slice().try_into().unwrap(),
+        )
+        .unwrap();
+
+        (me, res)
+    }
 }

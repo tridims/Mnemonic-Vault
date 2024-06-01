@@ -1,12 +1,12 @@
+mod crypto;
 mod encryption;
 mod utils;
-mod vault_encryptor;
 
 use anyhow::{Context, Ok, Result};
+use encryption::{EncryptedData, Encryption};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use utils::save_to_file;
-use vault_encryptor::{EncryptedData, Encryption};
 
 pub struct Vault {
     state: VaultState,
@@ -28,6 +28,10 @@ pub struct Data {
 }
 
 impl Vault {
+    pub fn get_encrypted_data(&self) -> Option<EncryptedData> {
+        self.encrypted_data.clone()
+    }
+
     pub fn new(key: &[u8]) -> Self {
         Vault {
             state: VaultState::Unlocked,
@@ -91,6 +95,16 @@ impl Vault {
             encrypted_data: Some(encrypted_data),
             encryption: None,
         })
+    }
+
+    pub fn load_encrypted(encrypted_data: EncryptedData) -> Self {
+        // Creates a new locked vault instance with the provided encrypted data
+        Vault {
+            state: VaultState::Locked,
+            data: None,
+            encrypted_data: Some(encrypted_data),
+            encryption: None,
+        }
     }
 
     pub fn unlock(&mut self, password: &[u8]) -> Result<()> {
