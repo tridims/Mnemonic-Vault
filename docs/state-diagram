@@ -1,0 +1,21 @@
+@startuml
+[*] --> Locked : CreateVault
+
+Locked --> SettingData : setData
+SettingData --> Locked : dataSet
+
+Locked --> Saving : save
+Saving --> Locked : vaultSaved
+
+[*] --> Loading : load
+Loading --> Locked : vaultLoaded
+
+Locked --> Unlocked : unlock
+
+Unlocked --> Unlocked : getData
+Unlocked --> PasswordChange : changePassword
+PasswordChange --> Unlocked : passwordChanged
+
+Unlocked --> Locked : lock
+@enduml
+

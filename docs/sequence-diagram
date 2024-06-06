@@ -1,0 +1,25 @@
+@startuml
+actor Main
+participant Vault
+participant "File System" as FS
+
+Main -> Vault: new()
+Main -> Vault: set_data(mnemonic, num_accounts)
+Vault --> Main: Result<()>
+Main -> Vault: save(file_path)
+Vault -> FS: write(file_path)
+FS --> Vault: Result<()>
+Vault --> Main: Result<()>
+Main -> Vault: load(file_path)
+Vault -> FS: read(file_path)
+FS --> Vault: Result<loaded_vault>
+Vault --> Main: Result<loaded_vault>
+Main -> loaded_vault: unlock(password)
+loaded_vault --> Main: Result<()>
+Main -> loaded_vault: get_data()
+loaded_vault --> Main: data(mnemonic, num_accounts)
+Main -> loaded_vault: change_password(current_password, new_password)
+loaded_vault --> Main: Result<()>
+Main -> loaded_vault: lock()
+@enduml
+
