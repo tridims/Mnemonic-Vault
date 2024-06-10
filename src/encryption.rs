@@ -48,7 +48,7 @@ impl Encryption {
             data: encrypted_data,
             iv,
             salt: self._salt.clone(),
-            key_algorithm: "AES256GCM".to_string(),
+            key_algorithm: "Speck128/256 CBC".to_string(),
             key_iterations: DEFAULT_ITERATIONS,
         }
     }
